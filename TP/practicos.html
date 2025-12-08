@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+        <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+        <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+		<title>Resultados Prácticos</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 0;
+				padding: 0;
+				background-color: #f0f0f0;
+			}
+
+			#main {
+				margin: 0 auto;
+				width: 450px;
+				padding: 20px;
+				background-color: #f0f0f0;
+				border-radius: 5px;
+				align-items: center;
+			}
+
+			h1 small {
+				font-size: 0.5em;
+				font-weight: normal;
+				color: #999;
+				vertical-align: middle;
+			}
+
+			h2 {
+				font-size: 1.5rem;
+				font-weight: normal;
+				color: #333;
+				margin: 0;
+				padding: 10px 0;
+			}
+
+			h2 span {
+				font-size: 2rem;
+				display: inline-block;
+				color: #999;
+				width: 40px;
+			}
+
+			.alumno {
+				background-color: #fafafa;
+				padding: 0 0 1px;
+				border-radius: 15px;
+				box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+				width: 500px;
+				margin: 10px auto;
+				border: 1px solid lightgray;
+				h2 {
+					font-size: 32px;
+					overflow: hidden;
+					white-space: nowrap;
+					text-overflow: ellipsis;
+					background-color: #dff1ff;
+					border-top-left-radius: 15px;
+ 				   	border-top-right-radius: 15px;
+				}
+
+				span {
+					font-size: 20px;
+					padding-top: 4px;
+					text-align: center;
+				}
+			}
+
+			.ver {
+				font-size: 1rem;
+				color: #333;
+				padding-left: 45px;
+				margin: 15px 5px;
+
+				a {
+					display: inline-block;
+					text-decoration: none;
+					font-size: 20px;
+				}
+			}
+
+			.falta {
+				color: red;
+			}
+
+			.alumno .ver .copia {
+				float: right;
+				font-size: 0.8rem;
+				color: #999;
+			}
+
+			table {
+                margin: 0;
+				font-family: sans-serif;
+				font-size: 20px;
+			}
+
+			caption {
+				caption-side: top;
+				font-weight: bold;
+			}
+
+			th,
+			td {
+				padding: 8px 10px;
+			}
+
+			th {
+				text-align: left;
+			}
+
+			td {
+				padding: 0 10px;
+				text-align: center;
+			}
+
+			input {
+				width: 500px;
+				padding: 12px 24px;
+				border-radius: 100px;
+				font-size: 24px;
+				font-weight: bold;
+				box-shadow: inset 0px 0px 7px lightgray;
+				border: 1px solid lightgray;
+			}
+			
+			body {
+				overflow-x: hidden; /* Deshabilita el desplazamiento horizontal */
+				overflow-y: scroll; /* Habilita el desplazamiento vertical */
+			}
+
+			.filtros {
+				margin: 10px 0;
+				display: flex;
+				justify-content: space-between;
+				font-size: 22px;
+				padding: 0 10px;
+				a {
+					text-decoration: none;
+					padding: 2px 2px;
+					font-size: 16px;
+				}	
+			}
+
+			.alumno {
+				position: relative;
+				.promo {
+					position: absolute;
+					top: 12px;
+					right: 12px;
+					font-size: 24px;
+					opacity: 75%;
+				}
+			}
+
+			small {
+				margin-left: 20px;
+				color: darkred;
+				font-size: 18px;
+			}
+
+			li {
+				list-style-type: none;
+				margin-bottom: 8px;
+				margin-right: 8px;
+			}
+
+			.busqueda {
+				width: 510px;
+			}
+
+		</style>
+
+		<script type="text/babel">
+			const { createRoot } = ReactDOM;
+			const { useState, useEffect } = React;
+
+			function ubicar(origen, practico) {
+				return `${origen}/${practico}/index.html`;
+			}
+			
+            function contarEntrega(datos, practico) {
+				const si = datos.filter((alumno) => alumno[practico]).length;
+				const no = datos.filter((alumno) => !alumno[practico]).length;
+				return { si, no };
+			}
+
+			function promociona(alumno){
+				let n3 = alumno["nota_tp3"];
+				let n6 = alumno["nota_tp6"];
+				return n3 > 8 && n6 > 8 && cantidadPresentados(alumno) > 5;
+			}
+
+			function casiPromociona(alumno){
+				let n3 = alumno["nota_tp3"];
+				let n6 = alumno["nota_tp6"];
+
+				return (n3 == 8 && n6 > 8 || n3 > 8 && n6 == 8) && (cantidadPresentados(alumno) >= 5);
+			}
+
+			function debeRevisar(alumno, tp=""){
+				return alumno.comentario_tp3?.includes('iguales') && (tp == "tp3" || tp=="")||
+					   alumno.comentario_tp6?.includes('iguales') && (tp == "tp6" || tp=="");	
+			}
+
+			const Entrego = ({ alumno, entrega }) => {
+				const tp = entrega.toLowerCase();
+				const nota = alumno[`nota_${tp}`] ?? 0;
+				let comentario = alumno[`comentario_${tp}`] ?? "";
+				
+				const conIndex = entrega <= 'tp4'
+				const conNota = (tp == 'tp3' || tp == 'tp6') && nota != '0';
+				const link = conIndex ? ubicar(alumno.ubicacion, entrega) : null;
+				const iguales = debeRevisar(alumno, tp);
+				const subio = (tp=='tp6' && alumno["subio"] != "No subido" && iguales) ? <small>Subido el {alumno["subio"]}</small> : null;
+
+				return (
+					<>
+						<div>
+							<a href={link}>
+								{entrega} | {iguales ? '🟡' : '🟢'} {conIndex && "Ver Trabajo"} {conNota && <b> (nota {nota})</b>}
+								{subio}
+							</a>
+						</div>
+						{comentario && <ul>{comentario.split(";").map((comentario,i) => <li key={i}>{comentario}</li>)}</ul>}
+					</>
+				);
+			};
+
+			const Falto = ({entrega}) => <span className='falta'> {entrega} | 🔴 No entregó</span>;
+
+			const Ver = ({ alumno, entrega }) => {
+				return (
+					<div className='ver'>
+						{alumno[entrega] ? 
+							<Entrego alumno={alumno} entrega={entrega} /> :
+						  	<Falto entrega={entrega} />
+						}
+					</div>
+				);
+			};
+
+			const iconos = {
+				"promocionado" : "⭐",
+				"recuperar" : "🟡",
+				"regular": "🟢",
+				"revisar" : "🔴",
+			}
+
+			const Alumno = ({ alumno, practicos }) => {
+				const [apellido, nombre] = alumno.nombre.split(', ');
+				const verificar = alumno.inicial.includes('verificar')
+				const promocion = promociona(alumno)
+				const icono = iconos[alumno["estado"]] ?? "🤔"
+				
+				return (
+					<div className='alumno'>
+						{<div className="promo">{icono}</div>} 
+						<h2> 
+							<span>{alumno.orden}</span> {nombre} <b>{apellido}</b>
+						</h2>
+						{practicos.map(practico => <Ver key={practico} alumno={alumno} entrega={practico} />)}
+					</div>
+				);
+			};
+
+			const Estadistica = ({ datos, practicos }) => {
+				let abandonos = datos.filter((a) => cantidadPresentados(a) == 0).length;
+				return (
+                    <table className='alumno'>
+                        <thead>
+                            <tr>
+                                <th>Prácticos</th>
+                                {practicos.map((practico) => <th key={practico}>{practico}</th>)}
+                            </tr>   
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th>Entregó</th>
+                                {practicos.map((practico) => <td key={practico}>{contarEntrega(datos, practico).si}</td>)}
+                            </tr>
+                            <tr>
+                                <th>Falta (-{abandonos})</th>
+                                {practicos.map((practico) => <td key={practico}>{contarEntrega(datos, practico).no - abandonos}</td>)}
+                            </tr>
+                        </tbody>
+                    </table>
+				);
+			};
+
+			function normalizar(texto) { // Elimina tildes, espacios innecearios y convierte a minúsculas
+				return texto
+					.trim()
+					.toLowerCase()
+					.normalize('NFD')
+					.replace(/[\u0300-\u036f]/g, '');
+			}
+
+			function esPractico(palabra) {
+                return /^-?tp\d{1,2}$/.test(palabra)
+            }
+
+            function esCantidad(palabra) {
+                return /^-?cp\d{1,2}$/.test(palabra)
+            }
+
+            function incluyePractico(alumno, palabra){
+                let incluir  = !palabra.startsWith('-');
+                let practico = palabra.replace('-', '');
+                return incluir == alumno[practico];
+            }
+
+            function incluyeCantidad(alumno, palabra){
+                let negar = palabra.startsWith('-');
+                let cantidad = +palabra.replace(/[^0-9]/g, '');
+                let presentados = cantidadPresentados(alumno);
+                return negar ? presentados <= cantidad : presentados >= cantidad;
+            }
+
+            function incluyePalabra(alumno, palabra){
+				const nota = (alumno.nota_tp6 && alumno.nota_tp3) ? 'con-nota' : 'sin-nota';
+				const revisar = debeRevisar(alumno) ? 'revisar' : '';
+                let texto = normalizar(
+					`${alumno.ubicacion} ${nota} ${alumno.estado} ${revisar} 
+						${alumno.nota_tp3} ${alumno.comentario_tp3}   
+						${alumno.nota_tp6} ${alumno.comentario_tp6} `)
+                return texto.includes(palabra);
+            }
+
+			function incluir(alumno, filtro) {
+				let palabras  = normalizar(filtro).split(' ');
+
+				for (let palabra of palabras) {
+                    let incluir = 
+                        esPractico(palabra) && incluyePractico(alumno, palabra) ||
+                        esCantidad(palabra) && incluyeCantidad(alumno, palabra) ||
+                        incluyePalabra(alumno, palabra);
+                    if  (!incluir) return false;
+				}
+                return true
+			}
+
+			function calcularPracticos(alumno) {
+				return Object.keys(alumno).filter((k) => k.startsWith('tp'));
+			}
+
+			function cantidadPresentados(alumno) {
+				let practicos = calcularPracticos(alumno);
+				return practicos.filter((p) => alumno[p]).length;
+			}
+
+			const App = () => {
+				let [datos, setDatos] = useState([]);
+				let [filtro, setFiltro] = useState('');
+
+				useEffect(() => {
+					traerDatos();
+					setFiltro('')
+				}, []);
+
+				async function traerDatos() {
+					const res = await fetch('datos.json');
+					const json = await res.json();
+					setDatos(json);
+				}
+
+				function filtrar(e) {
+					setFiltro(e.target.value.toLowerCase());
+				}
+
+				function estadoAlumno(alumno) {
+					let practicos = calcularPracticos(alumno);
+					let entregados = practicos.filter((p) => alumno[p]);
+					let cantidad = entregados.length;
+					return cantidad === practicos.length ? 'completo' : cantidad === 0 ? 'falta' : 'incompleto';
+				}
+
+				function ponerFiltro(e){
+					e.preventDefault();
+					let filtro = e.target.text.toLowerCase();
+					filtro = filtro.split(" ")[0]
+					setFiltro(filtro);
+				}
+
+				function contarEstado(estado){
+					estado = estado.toLowerCase();
+					return datos.filter((a) => a.estado == estado).length;
+				}
+
+				function Filtrar({estado}){
+					return <a href="#" onClick={ponerFiltro}>{estado} <span>({contarEstado(estado)})</span></a>
+				}
+
+				const comision  = datos.length > 0 ? datos[0].comision : '';
+				const practicos = datos.length > 0 ? calcularPracticos(datos[0]) : [];
+
+				let mostrar = datos.filter((a) => incluir(a, filtro));
+				if(filtro!="libre"){
+					mostrar = mostrar.filter((a) => cantidadPresentados(a) > 0);
+				}
+				return (
+					<div id='main'>
+						<div className="busqueda">
+						<h1> | {comision} | Listado de alumnos{' '} <small>({mostrar.length})</small></h1>
+						<input type='search' value={filtro} onChange={filtrar} />
+						<div className="filtros">
+							<Filtrar estado="Promocionado" />
+							<Filtrar estado="Recuperar" />
+							<Filtrar estado="Regular" />
+							<Filtrar estado="Libre" />
+						</div>
+						</div>
+						<Estadistica datos={datos} practicos={practicos} />
+						{mostrar.map((alumno) => <Alumno key={alumno.id} alumno={alumno} practicos={practicos}/>)}
+					</div>
+				);
+			};
+
+			const root = createRoot(document.getElementById('root'));
+			root.render(<App />);
+		</script>
+	</head>
+
+	<body>
+		<div id="root"></div>
+	</body>
+</html>
